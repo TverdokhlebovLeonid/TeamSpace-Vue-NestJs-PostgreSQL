@@ -1,0 +1,27 @@
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+coverage/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Generated OpenAPI spec (regenerated from the backend)
+backend/openapi.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# IDE / OS
+.idea/
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
