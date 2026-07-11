@@ -125,6 +125,24 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/auth/users/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a user (admin only) */
+    delete: operations['UsersController_remove']
+    options?: never
+    head?: never
+    /** Update a user (admin only) */
+    patch: operations['UsersController_update']
+    trace?: never
+  }
   '/api/auth/users/{id}/role': {
     parameters: {
       query?: never
@@ -140,23 +158,6 @@ export interface paths {
     head?: never
     /** Change a user role, e.g. promote to admin (admin only) */
     patch: operations['UsersController_changeRole']
-    trace?: never
-  }
-  '/api/auth/users/{id}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /** Delete a user (admin only) */
-    delete: operations['UsersController_remove']
-    options?: never
-    head?: never
-    patch?: never
     trace?: never
   }
   '/api/chat/conversations': {
@@ -337,6 +338,19 @@ export interface components {
       role: components['schemas']['UserRole']
       firstName?: string
       lastName?: string
+    }
+    UpdateUserDto: {
+      /** @example jdoe */
+      username?: string
+      /**
+       * Format: email
+       * @example jdoe@example.com
+       */
+      email?: string
+      firstName?: string
+      lastName?: string
+      role?: components['schemas']['UserRole']
+      language?: components['schemas']['UserLanguage']
     }
     UpdateRoleDto: {
       role: components['schemas']['UserRole']
@@ -592,6 +606,50 @@ export interface operations {
       }
     }
   }
+  UsersController_remove: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  UsersController_update: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateUserDto']
+      }
+    }
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserDto']
+        }
+      }
+    }
+  }
   UsersController_changeRole: {
     parameters: {
       query?: never
@@ -614,25 +672,6 @@ export interface operations {
         content: {
           'application/json': components['schemas']['UserDto']
         }
-      }
-    }
-  }
-  UsersController_remove: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        id: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
       }
     }
   }

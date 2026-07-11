@@ -2,6 +2,7 @@
 import * as usersApi from '@/api/users'
 import {USER_ROLE} from '@/api/enum'
 import IconPlus from '@/components/icon/Plus.vue'
+import IconPencil from '@/components/icon/Pencil.vue'
 import IconTrash from '@/components/icon/Trash.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiButtonIcon from '@/components/ui/UiButtonIcon.vue'
@@ -9,6 +10,7 @@ import UiCard from '@/components/ui/UiCard.vue'
 import UiContainer from '@/components/ui/UiContainer.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
+import UserEditDialog from '@/views/admin/UserEditDialog.vue'
 import {useAuthStore} from '@/stores/auth'
 import {useNotificationStore} from '@/stores/notification'
 import type {CreateUserPayload, User, UserRole} from '@/types/auth'
@@ -23,6 +25,8 @@ const users = ref<User[]>([])
 const loading = ref(false)
 const creating = ref(false)
 const showForm = ref(false)
+const showEditDialog = ref(false)
+const editingUser = ref<User | null>(null)
 
 const form = ref<{username: string; email: string; password: string; role: UserRole}>({
   username: '',
@@ -81,15 +85,6 @@ async function handleCreate() {
   }
 }
 
-async function handleRoleToggle(user: User) {
-  const nextRole: UserRole = user.role === USER_ROLE.admin ? USER_ROLE.user : USER_ROLE.admin
-  try {
-    const updated = await usersApi.changeRole(user.id, nextRole)
-    users.value = users.value.map((item) => (item.id === updated.id ? updated : item))
-    notificationStore.add({text: t('users.roleChangeSuccess'), type: 'success'})
-  } catch {}
-}
-
 async function handleDelete(user: User) {
   if (!window.confirm(t('users.deleteConfirm', {username: user.username}))) return
   try {
@@ -97,6 +92,15 @@ async function handleDelete(user: User) {
     notificationStore.add({text: t('users.deleteSuccess'), type: 'success'})
     await loadUsers()
   } catch {}
+}
+
+function openEdit(user: User) {
+  editingUser.value = user
+  showEditDialog.value = true
+}
+
+function handleUserSaved(updated: User) {
+  users.value = users.value.map((item) => (item.id === updated.id ? updated : item))
 }
 
 onMounted(loadUsers)
@@ -226,15 +230,15 @@ onMounted(loadUsers)
             >
               {{ user.role === USER_ROLE.admin ? t('users.roleAdmin') : t('users.roleUser') }}
             </span>
+            <UiButtonIcon
+              :label="t('users.edit')"
+              variant="neutral"
+              size="sm"
+              @click="openEdit(user)"
+            >
+              <IconPencil class="size-4" />
+            </UiButtonIcon>
             <template v-if="authStore.user && user.id !== authStore.user.id">
-              <UiButton
-                :label="
-                  user.role === USER_ROLE.admin ? t('users.revokeAdmin') : t('users.makeAdmin')
-                "
-                variant="secondary"
-                size="sm"
-                @click="handleRoleToggle(user)"
-              />
               <UiButtonIcon
                 :label="t('users.delete')"
                 variant="danger"
@@ -248,5 +252,11 @@ onMounted(loadUsers)
         </li>
       </ul>
     </UiCard>
+
+    <UserEditDialog
+      v-model:open="showEditDialog"
+      :user="editingUser"
+      @saved="handleUserSaved"
+    />
   </UiContainer>
 </template>

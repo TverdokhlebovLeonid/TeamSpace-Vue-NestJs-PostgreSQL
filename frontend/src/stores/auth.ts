@@ -67,6 +67,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await usersApi.getMe()
     applyLanguage(resolveUserLanguage(user.value.language))
   }
+  function syncUser(next: User) {
+    user.value = next
+    applyLanguage(resolveUserLanguage(next.language))
+  }
   async function initialize() {
     if (initialized.value) return
     initialized.value = true
@@ -115,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     setLanguage,
+    syncUser,
     setAccessToken,
     clearSession
   }

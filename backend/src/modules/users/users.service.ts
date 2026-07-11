@@ -12,6 +12,7 @@ import {UserLanguage, UserRole} from '@/common/enums/user-role.enum'
 import {ChangePasswordDto} from '@/modules/users/dto/change-password.dto'
 import {CreateUserDto} from '@/modules/users/dto/create-user.dto'
 import {UpdateProfileDto} from '@/modules/users/dto/update-profile.dto'
+import {UpdateUserDto} from '@/modules/users/dto/update-user.dto'
 import {User} from '@/modules/users/user.entity'
 
 const BCRYPT_ROUNDS = 12
@@ -72,6 +73,34 @@ export class UsersService {
     if (!matches) throw new UnauthorizedException('Incorrect current password.')
     user.passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS)
     await this.users.save(user)
+  }
+
+  async updateByAdmin(id: string, dto: UpdateUserDto, requesterId: string): Promise<User> {
+    const user = await this.getByIdOrThrow(id)
+
+    if (dto.username !== undefined && dto.username !== user.username) {
+      const existing = await this.findByUsername(dto.username)
+      if (existing && existing.id !== id) throw new ConflictException('Username already taken.')
+      user.username = dto.username
+    }
+
+    if (dto.email !== undefined) user.email = dto.email
+    if (dto.firstName !== undefined) user.firstName = dto.firstName
+    if (dto.lastName !== undefined) user.lastName = dto.lastName
+    if (dto.language !== undefined) user.language = dto.language
+
+    if (dto.role !== undefined && dto.role !== user.role) {
+      if (user.role === UserRole.ADMIN && dto.role !== UserRole.ADMIN) {
+        if (id === requesterId) {
+          throw new BadRequestException('You cannot revoke your own admin role.')
+        }
+        const adminCount = await this.users.count({where: {role: UserRole.ADMIN}})
+        if (adminCount <= 1) throw new BadRequestException('Cannot demote the last admin.')
+      }
+      user.role = dto.role
+    }
+
+    return this.users.save(user)
   }
 
   async changeRole(id: string, role: UserRole, requesterId: string): Promise<User> {

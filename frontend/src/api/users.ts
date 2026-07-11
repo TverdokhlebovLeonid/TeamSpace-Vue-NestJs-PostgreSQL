@@ -1,6 +1,6 @@
 import {API_AUTH_PREFIX} from '@/api/constants'
 import Http from '@/api/http'
-import type {AppLanguage, CreateUserPayload, User, UserRole} from '@/types/auth'
+import type {AppLanguage, CreateUserPayload, UpdateUserPayload, User, UserRole} from '@/types/auth'
 import type {Contact} from '@/types/chat'
 
 export const getMe = async () => {
@@ -30,6 +30,11 @@ export const create = async (payload: CreateUserPayload) => {
 
 export const remove = async (id: string) => {
   await Http.delete(`${API_AUTH_PREFIX}/users/${id}`)
+}
+
+export const update = async (id: string, payload: UpdateUserPayload) => {
+  const {data} = await Http.patch<User>(`${API_AUTH_PREFIX}/users/${id}`, payload)
+  return data
 }
 
 export const changeRole = async (id: string, role: UserRole) => {

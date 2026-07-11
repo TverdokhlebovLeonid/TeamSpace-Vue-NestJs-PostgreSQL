@@ -1,5 +1,6 @@
 {
   "name": "teamspace-backend",
+  "author": "Tverdokhlebov Leonid <qwertyn555@gmail.com>",
   "version": "0.0.0",
   "private": true,
   "description": "TeamSpace API — NestJS + PostgreSQL",

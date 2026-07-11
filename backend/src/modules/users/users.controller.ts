@@ -26,6 +26,7 @@ import {ContactDto} from '@/modules/users/dto/contact.dto'
 import {CreateUserDto} from '@/modules/users/dto/create-user.dto'
 import {UpdateProfileDto} from '@/modules/users/dto/update-profile.dto'
 import {UpdateRoleDto} from '@/modules/users/dto/update-role.dto'
+import {UpdateUserDto} from '@/modules/users/dto/update-user.dto'
 import {UserDto} from '@/modules/users/dto/user.dto'
 import {UsersService} from '@/modules/users/users.service'
 
@@ -89,6 +90,19 @@ export class UsersController {
   @ApiCreatedResponse({type: UserDto})
   async create(@Body() dto: CreateUserDto): Promise<UserDto> {
     const user = await this.usersService.create(dto)
+    return UserDto.fromEntity(user)
+  }
+
+  @Patch('users/:id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({summary: 'Update a user (admin only)'})
+  @ApiOkResponse({type: UserDto})
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser('sub') requesterId: string
+  ): Promise<UserDto> {
+    const user = await this.usersService.updateByAdmin(id, dto, requesterId)
     return UserDto.fromEntity(user)
   }
 
