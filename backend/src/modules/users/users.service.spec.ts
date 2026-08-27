@@ -1,5 +1,10 @@
 import {getRepositoryToken} from '@nestjs/typeorm'
-import {ConflictException, NotFoundException, UnauthorizedException} from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException
+} from '@nestjs/common'
 import {Test} from '@nestjs/testing'
 import * as bcrypt from 'bcryptjs'
 import {Not} from 'typeorm'
@@ -22,6 +27,7 @@ describe('UsersService', () => {
     users.find.mockReset()
     users.save.mockReset()
     users.create.mockReset()
+    users.count.mockReset()
     users.create.mockImplementation((entity: unknown) => entity)
     users.save.mockImplementation((entity: unknown) => Promise.resolve(entity))
     jest.mocked(bcrypt.hash).mockClear()
@@ -105,6 +111,50 @@ describe('UsersService', () => {
       const user = createUser({passwordHash: 'hash:secret'})
       await expect(service.verifyPassword(user, 'secret')).resolves.toBe(true)
       await expect(service.verifyPassword(user, 'wrong')).resolves.toBe(false)
+    })
+  })
+
+  describe('admin update and role', () => {
+    it('rejects a username taken by another user', async () => {
+      const user = createUser({id: 'a', username: 'alice'})
+      users.findOne
+        .mockResolvedValueOnce(user)
+        .mockResolvedValueOnce(createUser({id: 'b', username: 'bob'}))
+      await expect(service.updateByAdmin('a', {username: 'bob'}, 'admin-1')).rejects.toBeInstanceOf(
+        ConflictException
+      )
+    })
+
+    it('persists an empty email when the field is provided', async () => {
+      const user = createUser({email: 'old@example.com'})
+      users.findOne.mockResolvedValue(user)
+      const updated = await service.updateByAdmin(user.id, {email: ''}, 'admin-1')
+      expect(updated.email).toBe('')
+    })
+
+    it('blocks self-demotion', async () => {
+      const admin = createUser({id: 'admin-1', role: UserRole.ADMIN})
+      users.findOne.mockResolvedValue(admin)
+      await expect(
+        service.updateByAdmin('admin-1', {role: UserRole.USER}, 'admin-1')
+      ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('blocks demoting the last admin', async () => {
+      const admin = createUser({id: 'admin-1', role: UserRole.ADMIN})
+      users.findOne.mockResolvedValue(admin)
+      users.count.mockResolvedValue(1)
+      await expect(
+        service.updateByAdmin('admin-1', {role: UserRole.USER}, 'admin-2')
+      ).rejects.toThrow('Cannot demote the last admin.')
+    })
+
+    it('is a no-op when the role does not change', async () => {
+      const user = createUser({role: UserRole.USER})
+      users.findOne.mockResolvedValue(user)
+      const result = await service.changeRole(user.id, UserRole.USER, 'admin-1')
+      expect(result).toBe(user)
+      expect(users.save).not.toHaveBeenCalled()
     })
   })
 })
