@@ -28,6 +28,7 @@ describe('UsersService', () => {
     users.save.mockReset()
     users.create.mockReset()
     users.count.mockReset()
+    users.remove.mockReset()
     users.create.mockImplementation((entity: unknown) => entity)
     users.save.mockImplementation((entity: unknown) => Promise.resolve(entity))
     jest.mocked(bcrypt.hash).mockClear()
@@ -155,6 +156,37 @@ describe('UsersService', () => {
       const result = await service.changeRole(user.id, UserRole.USER, 'admin-1')
       expect(result).toBe(user)
       expect(users.save).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('remove', () => {
+    it('cannot delete the current account', async () => {
+      await expect(service.remove('same', 'same')).rejects.toThrow(
+        'Cannot delete your own account.'
+      )
+    })
+
+    it('cannot delete the last admin', async () => {
+      users.findOne.mockResolvedValue(createUser({id: 'admin-1', role: UserRole.ADMIN}))
+      users.count.mockResolvedValue(1)
+      await expect(service.remove('admin-1', 'admin-2')).rejects.toThrow(
+        'Cannot delete the last admin.'
+      )
+    })
+
+    it('deletes a regular user', async () => {
+      const user = createUser()
+      users.findOne.mockResolvedValue(user)
+      await service.remove(user.id, 'admin-1')
+      expect(users.remove).toHaveBeenCalledWith(user)
+    })
+
+    it('deletes an admin when more than one remains', async () => {
+      const admin = createUser({id: 'admin-2', role: UserRole.ADMIN})
+      users.findOne.mockResolvedValue(admin)
+      users.count.mockResolvedValue(2)
+      await service.remove('admin-2', 'admin-1')
+      expect(users.remove).toHaveBeenCalledWith(admin)
     })
   })
 })
