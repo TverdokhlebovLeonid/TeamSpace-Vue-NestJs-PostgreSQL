@@ -1,5 +1,5 @@
 import {getRepositoryToken} from '@nestjs/typeorm'
-import {BadRequestException, ForbiddenException} from '@nestjs/common'
+import {BadRequestException, ForbiddenException, NotFoundException} from '@nestjs/common'
 import {Test} from '@nestjs/testing'
 import {ConversationMemberRole, ConversationType} from '@/common/enums/chat.enum'
 import {ChatService} from '@/modules/chat/chat.service'
@@ -101,6 +101,54 @@ describe('ChatService', () => {
       members.findOne.mockResolvedValue(null)
       await expect(service.assertMember('conv-1', 'stranger')).rejects.toBeInstanceOf(
         ForbiddenException
+      )
+    })
+  })
+
+  describe('direct', () => {
+    it('rejects a conversation with yourself', async () => {
+      await expect(service.createOrGetDirect(creator.id, creator.id)).rejects.toBeInstanceOf(
+        BadRequestException
+      )
+    })
+
+    it('rejects a missing other user', async () => {
+      users.findOne.mockResolvedValue(null)
+      await expect(service.createOrGetDirect(creator.id, member.id)).rejects.toBeInstanceOf(
+        NotFoundException
+      )
+    })
+
+    it('returns the existing conversation for a directKey', async () => {
+      users.findOne.mockResolvedValue(member)
+      const existing = {
+        id: 'conv-direct',
+        type: ConversationType.DIRECT,
+        title: null,
+        updatedAt: new Date('2026-01-02')
+      }
+      mockConversationView(existing)
+      const view = await service.createOrGetDirect(creator.id, member.id)
+      expect(view.id).toBe('conv-direct')
+      expect(conversations.save).not.toHaveBeenCalled()
+    })
+
+    it('stores a sorted directKey for a new conversation', async () => {
+      users.findOne.mockResolvedValue(member)
+      const saved = {
+        id: 'conv-new',
+        type: ConversationType.DIRECT,
+        title: null,
+        createdBy: creator.id,
+        updatedAt: new Date()
+      }
+      conversations.findOne.mockResolvedValueOnce(null)
+      conversations.save.mockResolvedValue(saved)
+      mockConversationView(saved)
+      await service.createOrGetDirect(creator.id, member.id)
+      const expectedKey = [creator.id, member.id].sort().join(':')
+      expect(conversations.create).toHaveBeenCalledWith(
+        expect.objectContaining({directKey: expectedKey, type: ConversationType.DIRECT})
       )
     })
   })
