@@ -21,11 +21,21 @@ export function mockRepository() {
   return {
     findOne: jest.fn(),
     find: jest.fn(),
-    save: jest.fn(async (entity: unknown) => entity),
+    save: jest.fn((entity: unknown) => Promise.resolve(entity)),
     create: jest.fn((entity: unknown) => entity),
     count: jest.fn(),
     remove: jest.fn(),
     update: jest.fn(),
     createQueryBuilder: jest.fn()
+  }
+}
+
+export function mockQueryBuilder<T>(rows: T[]) {
+  return {
+    where: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue(rows)
   }
 }

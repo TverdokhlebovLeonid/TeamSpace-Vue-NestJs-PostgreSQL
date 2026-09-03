@@ -7,7 +7,7 @@ import {ConversationMember} from '@/modules/chat/entities/conversation-member.en
 import {Conversation} from '@/modules/chat/entities/conversation.entity'
 import {Message} from '@/modules/chat/entities/message.entity'
 import {User} from '@/modules/users/user.entity'
-import {createUser, mockRepository} from '../../../test/helpers'
+import {createUser, mockQueryBuilder, mockRepository} from '../../../test/helpers'
 
 const creator = createUser({id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', username: 'creator'})
 const member = createUser({id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', username: 'member'})
@@ -27,6 +27,8 @@ describe('ChatService', () => {
       repo.create.mockReset()
       repo.create.mockImplementation((entity: unknown) => entity)
       repo.save.mockImplementation((entity: unknown) => Promise.resolve(entity))
+      repo.update.mockReset()
+      repo.createQueryBuilder.mockReset()
     }
     const module = await Test.createTestingModule({
       providers: [
@@ -150,6 +152,75 @@ describe('ChatService', () => {
       expect(conversations.create).toHaveBeenCalledWith(
         expect.objectContaining({directKey: expectedKey, type: ConversationType.DIRECT})
       )
+    })
+  })
+
+  describe('messages', () => {
+    it('forbids sending when the user is not a member', async () => {
+      members.findOne.mockResolvedValue(null)
+      await expect(service.createMessage('conv-1', 'stranger', 'hi')).rejects.toBeInstanceOf(
+        ForbiddenException
+      )
+    })
+
+    it('rejects whitespace-only content', async () => {
+      members.findOne.mockResolvedValue({conversationId: 'conv-1', userId: creator.id})
+      await expect(service.createMessage('conv-1', creator.id, '   ')).rejects.toBeInstanceOf(
+        BadRequestException
+      )
+    })
+
+    it('trims content and updates conversation.updatedAt', async () => {
+      members.findOne.mockResolvedValue({conversationId: 'conv-1', userId: creator.id})
+      messages.save.mockResolvedValue({
+        id: 'msg-1',
+        conversationId: 'conv-1',
+        senderId: creator.id,
+        content: 'hello',
+        createdAt: new Date('2026-01-01')
+      })
+      members.find.mockResolvedValue([{userId: creator.id}, {userId: member.id}])
+      const result = await service.createMessage('conv-1', creator.id, '  hello  ')
+      expect(messages.create).toHaveBeenCalledWith(expect.objectContaining({content: 'hello'}))
+      const updateCall = conversations.update.mock.calls[0] as [string, {updatedAt: Date}]
+      expect(updateCall[0]).toBe('conv-1')
+      expect(updateCall[1].updatedAt).toBeInstanceOf(Date)
+      expect(result.recipientIds).toEqual([creator.id, member.id])
+    })
+
+    it('returns messages in chronological order with default limit 30', async () => {
+      members.findOne.mockResolvedValue({conversationId: 'conv-1', userId: creator.id})
+      const newer = {
+        id: 'm2',
+        conversationId: 'conv-1',
+        senderId: creator.id,
+        content: 'second',
+        createdAt: new Date('2026-01-02')
+      }
+      const older = {
+        id: 'm1',
+        conversationId: 'conv-1',
+        senderId: creator.id,
+        content: 'first',
+        createdAt: new Date('2026-01-01')
+      }
+      const qb = mockQueryBuilder([newer, older])
+      messages.createQueryBuilder.mockReturnValue(qb)
+      const rows = await service.getMessages('conv-1', creator.id, {})
+      expect(qb.take).toHaveBeenCalledWith(30)
+      expect(rows.map((row) => row.content)).toEqual(['first', 'second'])
+    })
+
+    it('applies a before cursor when the message exists', async () => {
+      members.findOne.mockResolvedValue({conversationId: 'conv-1', userId: creator.id})
+      const cursor = {id: 'm2', createdAt: new Date('2026-01-02')}
+      messages.findOne.mockResolvedValue(cursor)
+      const qb = mockQueryBuilder([])
+      messages.createQueryBuilder.mockReturnValue(qb)
+      await service.getMessages('conv-1', creator.id, {before: 'm2'})
+      expect(qb.andWhere).toHaveBeenCalledWith('message.created_at < :cursor', {
+        cursor: cursor.createdAt
+      })
     })
   })
 })
