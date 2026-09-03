@@ -29,13 +29,3 @@ export function mockRepository() {
     createQueryBuilder: jest.fn()
   }
 }
-
-export function mockQueryBuilder<T>(rows: T[]) {
-  return {
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue(rows)
-  }
-}

@@ -7,10 +7,24 @@ import {ConversationMember} from '@/modules/chat/entities/conversation-member.en
 import {Conversation} from '@/modules/chat/entities/conversation.entity'
 import {Message} from '@/modules/chat/entities/message.entity'
 import {User} from '@/modules/users/user.entity'
-import {createUser, mockQueryBuilder, mockRepository} from '../../../test/helpers'
+import {createUser, mockRepository} from '../../../test/helpers'
 
 const creator = createUser({id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', username: 'creator'})
 const member = createUser({id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', username: 'member'})
+
+function createQueryBuilderMock(rows: unknown[]) {
+  const where = jest.fn()
+  const orderBy = jest.fn()
+  const take = jest.fn()
+  const andWhere = jest.fn()
+  const getMany = jest.fn(() => Promise.resolve(rows))
+  const qb = {where, orderBy, take, andWhere, getMany}
+  where.mockReturnValue(qb)
+  orderBy.mockReturnValue(qb)
+  take.mockReturnValue(qb)
+  andWhere.mockReturnValue(qb)
+  return qb
+}
 
 describe('ChatService', () => {
   let service: ChatService
@@ -204,7 +218,7 @@ describe('ChatService', () => {
         content: 'first',
         createdAt: new Date('2026-01-01')
       }
-      const qb = mockQueryBuilder([newer, older])
+      const qb = createQueryBuilderMock([newer, older])
       messages.createQueryBuilder.mockReturnValue(qb)
       const rows = await service.getMessages('conv-1', creator.id, {})
       expect(qb.take).toHaveBeenCalledWith(30)
@@ -215,7 +229,7 @@ describe('ChatService', () => {
       members.findOne.mockResolvedValue({conversationId: 'conv-1', userId: creator.id})
       const cursor = {id: 'm2', createdAt: new Date('2026-01-02')}
       messages.findOne.mockResolvedValue(cursor)
-      const qb = mockQueryBuilder([])
+      const qb = createQueryBuilderMock([])
       messages.createQueryBuilder.mockReturnValue(qb)
       await service.getMessages('conv-1', creator.id, {before: 'm2'})
       expect(qb.andWhere).toHaveBeenCalledWith('message.created_at < :cursor', {
